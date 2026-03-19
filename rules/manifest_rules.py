@@ -13,6 +13,7 @@ class InsecureNetworkConfigRule(BaseRule):
     title = "Insecure Network Security Configuration"
     severity = Severity.HIGH
     cwe = "CWE-295"
+    component_type = "manifest"
     description = "App allows cleartext traffic or accepts all certificates."
 
     def check(self) -> List[Finding]:
@@ -55,6 +56,7 @@ class DebugModeEnabledRule(BaseRule):
     title = "Debug Mode Enabled"
     severity = Severity.HIGH
     cwe = "CWE-489"
+    component_type = "manifest"
     description = "Application has debug mode enabled, exposing sensitive information."
 
     def check(self) -> List[Finding]:
@@ -99,6 +101,7 @@ class BackupEnabledRule(BaseRule):
     title = "Backup Enabled - Data Exposure Risk"
     severity = Severity.MEDIUM
     cwe = "CWE-530"
+    component_type = "manifest"
     description = "Application data can be backed up and restored, potentially exposing sensitive information."
 
     def check(self) -> List[Finding]:
@@ -144,6 +147,7 @@ class PendingIntentVulnerabilityRule(BaseRule):
     title = "Mutable PendingIntent Vulnerability"
     severity = Severity.HIGH
     cwe = "CWE-927"
+    component_type = "intent"
     description = "PendingIntent created without FLAG_IMMUTABLE, allowing malicious apps to modify intent."
 
     def check(self) -> List[Finding]:
