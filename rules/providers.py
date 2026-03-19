@@ -166,6 +166,72 @@ class ProviderPathTraversalRule(BaseRule):
         return findings
 
 
+class TypoPermissionRule(BaseRule):
+    """Detect content providers protected by a permission that was never declared - CWE-732.
+
+    A common mistake is setting android:permission (or readPermission/writePermission)
+    to a string that is misspelled or never declared.  Android treats an undeclared
+    permission as always-granted, so the provider is effectively unprotected.
+    """
+
+    rule_id = "EXP-032"
+    title = "Content Provider Protected by Undeclared Permission (Typo Permission)"
+    severity = Severity.CRITICAL
+    cwe = "CWE-732"
+    description = (
+        "Content provider references a permission string that is not declared in the "
+        "manifest. Android grants access to any app when the required permission does "
+        "not exist, making the provider completely unprotected despite the attribute."
+    )
+    remediation = (
+        "Declare the permission with <permission> in AndroidManifest.xml and set "
+        "android:protectionLevel=\"signature\". Verify the exact permission string matches."
+    )
+    references = [
+        "https://cwe.mitre.org/data/definitions/732.html",
+        "https://developer.android.com/guide/topics/manifest/permission-element",
+    ]
+
+    def check(self) -> List[Finding]:
+        findings = []
+
+        declared = {p["name"] for p in self.apk_parser.get_custom_permissions()}
+        # Also include well-known Android platform permissions as valid
+        # (we only want to catch custom/app-defined permissions that are typo'd)
+
+        providers = self.apk_parser.get_providers()
+        for provider in providers:
+            if not provider["exported"]:
+                continue
+
+            for perm_attr in ("permission", "read_permission", "write_permission"):
+                perm = provider.get(perm_attr)
+                if not perm:
+                    continue
+                # Only flag custom permissions (not android.permission.*)
+                if perm.startswith("android.permission."):
+                    continue
+                # If the permission is referenced but never declared → typo
+                if perm not in declared:
+                    for authority in provider.get("authorities", []):
+                        findings.append(self.create_finding(
+                            component_name=f"{provider['name']} ({authority})",
+                            confidence=Confidence.CONFIRMED,
+                            code_snippet=f'android:{perm_attr}="{perm}"  <!-- NOT declared in manifest -->',
+                            exploit_commands=[
+                                f"adb shell content query --uri content://{authority}/",
+                                f"adb shell content read --uri content://{authority}/",
+                            ],
+                            exploit_scenario=(
+                                f"Permission '{perm}' is referenced but never declared. "
+                                f"Any app can access {authority} without holding any permission."
+                            ),
+                            api_level_affected="All",
+                        ))
+
+        return findings
+
+
 class GrantUriPermissionsRule(BaseRule):
     """Detect global URI permission grants - CWE-284."""
 
