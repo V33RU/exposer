@@ -28,6 +28,10 @@ class ExportedServiceRule(BaseRule):
             if not service['exported']:
                 continue
 
+            # Skip known third-party SDK services — they are legitimately exported
+            if self._is_third_party_component(service['name']):
+                continue
+
             # Check if protected by signature-level permission
             if self._is_protected(service.get('permission')):
                 continue
