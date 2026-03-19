@@ -43,17 +43,22 @@ from core.taint_engine import TaintEngine
 from rules.base_rule import Finding, Severity, Confidence
 from rules.activities import (
     ExportedActivityRule, IntentToWebViewRule, NestedIntentForwardingRule,
-    TaskHijackingRule, TapjackingVulnerabilityRule, JavaScriptBridgeRule
+    TaskHijackingRule, TapjackingVulnerabilityRule, JavaScriptBridgeRule,
+    FragmentInjectionRule, InsecureWebResourceResponseRule,
 )
 from rules.services import ExportedServiceRule, ServiceIntentInjectionRule
 from rules.receivers import ExportedReceiverRule, DynamicReceiverRule, ReceiverInjectionRule
-from rules.providers import ExportedProviderRule, ProviderSQLInjectionRule, ProviderPathTraversalRule, GrantUriPermissionsRule
+from rules.providers import (
+    ExportedProviderRule, ProviderSQLInjectionRule, ProviderPathTraversalRule,
+    GrantUriPermissionsRule, TypoPermissionRule,
+)
 from rules.deeplinks import DeepLinkAutoVerifyRule, DeepLinkOpenRedirectRule, CustomSchemeHijackingRule
 from rules.manifest_rules import (
     InsecureNetworkConfigRule, DebugModeEnabledRule,
     BackupEnabledRule, PendingIntentVulnerabilityRule
 )
 from rules.crypto_rules import HardcodedCryptoKeyRule, InsecureRandomRule
+from rules.storage_rules import InsecureLoggingRule, DynamicCodeLoadingRule, SecureScreenFlagRule
 
 from exploit.hint_generator import ExploitHintGenerator
 from exploit.scenario_builder import ScenarioBuilder
@@ -108,6 +113,9 @@ def get_all_rules(apk_parser, callgraph, taint_engine, components: Optional[str]
             NestedIntentForwardingRule(apk_parser, callgraph, taint_engine),
             TaskHijackingRule(apk_parser, callgraph, taint_engine),
             TapjackingVulnerabilityRule(apk_parser, callgraph, taint_engine),
+            JavaScriptBridgeRule(apk_parser, callgraph, taint_engine),
+            FragmentInjectionRule(apk_parser, callgraph, taint_engine),
+            InsecureWebResourceResponseRule(apk_parser, callgraph, taint_engine),
         ]
     if include("services"):
         rules += [
@@ -126,6 +134,7 @@ def get_all_rules(apk_parser, callgraph, taint_engine, components: Optional[str]
             ProviderSQLInjectionRule(apk_parser, callgraph, taint_engine),
             ProviderPathTraversalRule(apk_parser, callgraph, taint_engine),
             GrantUriPermissionsRule(apk_parser, callgraph, taint_engine),
+            TypoPermissionRule(apk_parser, callgraph, taint_engine),
         ]
     if include("deeplinks"):
         rules += [
@@ -141,6 +150,9 @@ def get_all_rules(apk_parser, callgraph, taint_engine, components: Optional[str]
             PendingIntentVulnerabilityRule(apk_parser, callgraph, taint_engine),
             HardcodedCryptoKeyRule(apk_parser, callgraph, taint_engine),
             InsecureRandomRule(apk_parser, callgraph, taint_engine),
+            InsecureLoggingRule(apk_parser, callgraph, taint_engine),
+            DynamicCodeLoadingRule(apk_parser, callgraph, taint_engine),
+            SecureScreenFlagRule(apk_parser, callgraph, taint_engine),
         ]
     return rules
 
@@ -251,7 +263,7 @@ def scan(
         t2 = progress.add_task("Building call graph…", total=1)
         if parser.analysis:
             callgraph = CallGraph(parser.dexes, parser.analysis)
-            taint_engine = TaintEngine(parser.dexes, parser.analysis)
+            taint_engine = TaintEngine(parser.dexes, parser.analysis, app_package=package_name)
             sources = taint_engine.find_sources()
             sinks = taint_engine.find_sinks()
             taint_engine.track_taint(sources, sinks)
