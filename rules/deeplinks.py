@@ -23,27 +23,26 @@ class DeepLinkAutoVerifyRule(BaseRule):
     def check(self) -> List[Finding]:
         """Check for deep links without autoVerify."""
         findings = []
-        activities = self.apk_parser.get_activities()
+        components = self.apk_parser.get_activities() + self.apk_parser.get_services()
 
-        for activity in activities:
-            if self._is_third_party_component(activity['name']):
+        for component in components:
+            if self._is_third_party_component(component['name']):
                 continue
-            for intent_filter in activity.get('intent_filters', []):
+            for intent_filter in component.get('intent_filters', []):
                 schemes = [d.get('scheme', '') for d in intent_filter.get('data', [])]
 
                 # Check if handling http/https without autoVerify
                 if 'http' in schemes or 'https' in schemes:
-                    # Check if autoVerify is enabled - need to check XML directly
-                    has_autoverify = self._check_autoverify(activity['name'], intent_filter)
+                    has_autoverify = self._check_autoverify(component['name'], intent_filter)
 
                     if not has_autoverify:
                         exploit_cmds = [
                             f"adb shell am start -a android.intent.action.VIEW -d 'https://phishing.com/malicious' "
-                            f"-n {self.apk_parser.get_package_name()}/{activity['name']}"
+                            f"-n {self.apk_parser.get_package_name()}/{component['name']}"
                         ]
 
                         finding = self.create_finding(
-                            component_name=activity['name'],
+                            component_name=component['name'],
                             confidence=Confidence.LIKELY,
                             exploit_commands=exploit_cmds,
                             exploit_scenario="Malicious app can intercept links intended for legitimate domains.",
@@ -80,14 +79,13 @@ class DeepLinkOpenRedirectRule(BaseRule):
         if not self.taint_engine:
             return findings
 
-        activities = self.apk_parser.get_activities()
+        components = self.apk_parser.get_activities() + self.apk_parser.get_services()
 
-        for activity in activities:
-            if self._is_third_party_component(activity['name']):
+        for component in components:
+            if self._is_third_party_component(component['name']):
                 continue
-            # Check for deep link handling with URL parameter
             has_deep_link = False
-            for intent_filter in activity.get('intent_filters', []):
+            for intent_filter in component.get('intent_filters', []):
                 schemes = [d.get('scheme', '') for d in intent_filter.get('data', [])]
                 if schemes:
                     has_deep_link = True
@@ -101,18 +99,18 @@ class DeepLinkOpenRedirectRule(BaseRule):
 
             for path in paths:
                 if "getData" in path.source or "getQueryParameter" in path.source:
-                    if activity['name'] in path.sink:
+                    if component['name'] in path.sink:
                         exploit_cmds = [
                             f"adb shell am start -a android.intent.action.VIEW "
                             f"-d 'app://open?url=https://attacker.com/phishing' "
-                            f"-n {self.apk_parser.get_package_name()}/{activity['name']}",
+                            f"-n {self.apk_parser.get_package_name()}/{component['name']}",
                             f"adb shell am start -a android.intent.action.VIEW "
                             f"-d 'app://redirect?target=javascript:alert(1)' "
-                            f"-n {self.apk_parser.get_package_name()}/{activity['name']}"
+                            f"-n {self.apk_parser.get_package_name()}/{component['name']}"
                         ]
 
                         finding = self.create_finding(
-                            component_name=activity['name'],
+                            component_name=component['name'],
                             confidence=Confidence.CONFIRMED,
                             taint_path=[{"method": step.method, "instruction": step.instruction} for step in path.steps],
                             exploit_commands=exploit_cmds,
@@ -142,31 +140,30 @@ class CustomSchemeHijackingRule(BaseRule):
     def check(self) -> List[Finding]:
         """Check for custom scheme vulnerabilities."""
         findings = []
-        activities = self.apk_parser.get_activities()
+        components = self.apk_parser.get_activities() + self.apk_parser.get_services()
 
         common_schemes = ['http', 'https', 'file', 'content', 'javascript']
 
-        for activity in activities:
-            if self._is_third_party_component(activity['name']):
+        for component in components:
+            if self._is_third_party_component(component['name']):
                 continue
-            for intent_filter in activity.get('intent_filters', []):
+            for intent_filter in component.get('intent_filters', []):
                 data_specs = intent_filter.get('data', [])
 
                 for spec in data_specs:
                     scheme = spec.get('scheme', '')
                     if scheme and scheme not in common_schemes:
-                        # Custom scheme detected
                         exploit_cmds = [
                             f"adb shell am start -a android.intent.action.VIEW "
                             f"-d '{scheme}://test/payload' "
-                            f"-n {self.apk_parser.get_package_name()}/{activity['name']}",
+                            f"-n {self.apk_parser.get_package_name()}/{component['name']}",
                             f"adb shell am start -a android.intent.action.VIEW "
                             f"-d '{scheme}://open?token=test_token' "
-                            f"-n {self.apk_parser.get_package_name()}/{activity['name']}"
+                            f"-n {self.apk_parser.get_package_name()}/{component['name']}"
                         ]
 
                         finding = self.create_finding(
-                            component_name=activity['name'],
+                            component_name=component['name'],
                             confidence=Confidence.LIKELY,
                             exploit_commands=exploit_cmds,
                             exploit_scenario=f"Any app can register for {scheme}:// scheme and intercept deep links.",
