@@ -57,38 +57,37 @@ class DebugModeEnabledRule(BaseRule):
     severity = Severity.HIGH
     cwe = "CWE-489"
     component_type = "manifest"
-    description = "Application has debug mode enabled, exposing sensitive information."
+    description = "Application has android:debuggable=\"true\" in the manifest, allowing debugger attachment and bypassing security controls."
 
     def check(self) -> List[Finding]:
-        """Check for debug flags."""
+        """Check for debuggable flag in manifest.
+
+        Note: Only checks android:debuggable in the manifest. Log.d presence
+        is NOT flagged — it appears in virtually every app (including SDK code)
+        and produces near-100% false positive rates with no actionable signal.
+        """
         findings = []
 
         app_elem = self._get_manifest_app_element()
-        if app_elem is not None:
-            debuggable = app_elem.get(f"{{{ANDROID_NS}}}debuggable")
-            if debuggable == "true":
-                findings.append(self.create_finding(
-                    component_name="Application",
-                    confidence=Confidence.CONFIRMED,
-                    details={"issue": "Debug mode enabled in manifest"},
-                    code_snippet='android:debuggable="true"',
-                    remediation="Set android:debuggable to false for release builds.",
-                    exploit_commands=[
-                        "# Attach debugger",
-                        "adb shell am set-debug-app -w --persistent com.package.name",
-                        "adb shell am start -D -n com.package.name/.MainActivity"
-                    ]
-                ))
+        if app_elem is None:
+            return findings
 
-        debug_methods = self.callgraph.search_methods("Log.d") if self.callgraph else []
-        if debug_methods:
+        debuggable = app_elem.get(f"{{{ANDROID_NS}}}debuggable")
+        if debuggable == "true":
+            pkg = self.apk_parser.get_package_name()
             findings.append(self.create_finding(
                 component_name="Application",
-                confidence=Confidence.LIKELY,
-                details={"issue": "Debug logging found in code", "method_count": len(debug_methods)},
-                code_snippet="Debug logging methods detected",
-                remediation="Remove debug logs and use ProGuard to strip them in release builds.",
-                exploit_commands=["# Check log output", "adb logcat | grep $(adb shell pidof com.package.name)"]
+                confidence=Confidence.CONFIRMED,
+                details={"issue": "android:debuggable=\"true\" set in manifest"},
+                code_snippet='android:debuggable="true"',
+                remediation="Remove android:debuggable or set it to false. Ensure release builds are signed with a release key.",
+                exploit_commands=[
+                    "# Attach JDWP debugger",
+                    f"adb shell am set-debug-app -w --persistent {pkg}",
+                    f"adb shell am start -D -n {pkg}/.MainActivity",
+                    "# Or extract app data without root via backup",
+                    f"adb backup -apk -shared {pkg}",
+                ]
             ))
 
         return findings
@@ -148,30 +147,75 @@ class PendingIntentVulnerabilityRule(BaseRule):
     severity = Severity.HIGH
     cwe = "CWE-927"
     component_type = "intent"
-    description = "PendingIntent created without FLAG_IMMUTABLE, allowing malicious apps to modify intent."
+    description = "PendingIntent created without FLAG_IMMUTABLE, allowing malicious apps to modify the wrapped intent."
 
     def check(self) -> List[Finding]:
-        """Check for PendingIntent usage."""
+        """Check for PendingIntent usage without FLAG_IMMUTABLE.
+
+        Strategy: for each method that calls PendingIntent.get*, check whether
+        FLAG_IMMUTABLE or FLAG_MUTABLE appears anywhere in the same method's
+        callees.  FLAG_IMMUTABLE = 0x04000000 — it shows up as a field reference
+        to android.app.PendingIntent.FLAG_IMMUTABLE in the bytecode.  If neither
+        flag is found, the PendingIntent is likely mutable (required to be explicit
+        on API 31+).
+        """
         findings = []
 
         if not self.callgraph:
             return findings
 
-        pending_intent_methods = self.callgraph.search_methods("PendingIntent;->get")
         target_sdk = self._safe_sdk_int(self.apk_parser.get_target_sdk())
+        # On API 31+ FLAG_IMMUTABLE is mandatory — raise severity to HIGH, else MEDIUM
+        base_confidence = Confidence.LIKELY if target_sdk >= 31 else Confidence.POSSIBLE
 
-        for method in pending_intent_methods:
+        callers = self.callgraph.search_methods("PendingIntent;->get")
+        seen: set = set()
+
+        for caller_sig in callers:
+            if caller_sig in seen:
+                continue
+            seen.add(caller_sig)
+
+            callees = self.callgraph.get_callees(caller_sig) if hasattr(self.callgraph, "get_callees") else []
+            context_strings = [caller_sig] + list(callees)
+
+            # If FLAG_IMMUTABLE or FLAG_MUTABLE is explicitly referenced, skip
+            has_immutable = any(
+                "FLAG_IMMUTABLE" in s or "FLAG_MUTABLE" in s
+                for s in context_strings
+            )
+            if has_immutable:
+                continue
+
+            class_name = (
+                caller_sig.split("->")[0].strip("L").replace("/", ".").rstrip(";")
+                if "->" in caller_sig else caller_sig
+            )
+
             findings.append(self.create_finding(
-                component_name=method.split("->")[0] if "->" in method else "Application",
-                confidence=Confidence.POSSIBLE,
+                component_name=class_name,
+                confidence=base_confidence,
                 details={
-                    "issue": "PendingIntent may be missing FLAG_IMMUTABLE",
-                    "method": method,
+                    "issue": "PendingIntent created without FLAG_IMMUTABLE",
+                    "caller": caller_sig,
                     "target_sdk": target_sdk
                 },
-                code_snippet="PendingIntent.getActivity(context, 0, intent, 0)  // Verify FLAG_IMMUTABLE is set",
-                remediation="Add PendingIntent.FLAG_IMMUTABLE (API 23+) or FLAG_MUTABLE explicitly. Required on API 31+.",
-                exploit_commands=["# Verify FLAG_IMMUTABLE is set in the PendingIntent creation call"]
+                code_snippet=(
+                    "// Vulnerable:\n"
+                    "PendingIntent.getActivity(context, 0, intent, 0);\n"
+                    "// Fixed:\n"
+                    "PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE);"
+                ),
+                remediation=(
+                    "Pass PendingIntent.FLAG_IMMUTABLE as the flags argument (API 23+). "
+                    "Required on API 31+. Use FLAG_MUTABLE only if the intent must be modified by the system."
+                ),
+                exploit_commands=[
+                    "# A malicious app can intercept and modify the mutable PendingIntent",
+                    "# to redirect it to an arbitrary component or add extra data.",
+                    "# Manual verification required: check the flags argument in the source.",
+                ],
+                api_level_affected="All (mandatory on API 31+)"
             ))
 
         return findings
