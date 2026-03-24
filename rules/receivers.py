@@ -36,10 +36,16 @@ class ExportedReceiverRule(BaseRule):
             if self._is_protected(receiver.get('permission')):
                 continue
 
+            pkg = self.apk_parser.get_package_name()
             exploit_cmds = [
-                f"adb shell am broadcast -n {self.apk_parser.get_package_name()}/{receiver['name']}",
-                f"adb shell am broadcast -a android.intent.action.BOOT_COMPLETED -n {self.apk_parser.get_package_name()}/{receiver['name']}"
+                f"adb shell am broadcast -n {pkg}/{receiver['name']}",
             ]
+            # Use actual registered actions instead of a hardcoded placeholder
+            for intent_filter in receiver.get('intent_filters', []):
+                for action in intent_filter.get('actions', []):
+                    exploit_cmds.append(
+                        f"adb shell am broadcast -a {action} -n {pkg}/{receiver['name']}"
+                    )
 
             finding = self.create_finding(
                 component_name=receiver['name'],
@@ -81,22 +87,62 @@ class DynamicReceiverRule(BaseRule):
         if target_sdk < 33:
             return findings
 
-        # Search for registerReceiver calls without export flags
-        if self.callgraph:
-            methods = self.callgraph.search_methods("registerReceiver")
-            for method in methods:
-                # Check if flag is present - simplified check
-                if "RECEIVER_NOT_EXPORTED" not in method:
-                    finding = self.create_finding(
-                        component_name=method,
-                        confidence=Confidence.POSSIBLE,
-                        exploit_commands=[
-                            f"adb shell am broadcast -a android.intent.action.BOOT_COMPLETED --receiver-include-background"
-                        ],
-                        exploit_scenario="Dynamically registered receiver may be accessible to other apps on API 33+.",
-                        api_level_affected="API 33+"
-                    )
-                    findings.append(finding)
+        if not self.callgraph:
+            return findings
+
+        # Find callers of registerReceiver — these are the methods that register a receiver.
+        # For each caller, check whether it (or any of its callees) reference the
+        # RECEIVER_NOT_EXPORTED / RECEIVER_EXPORTED constant.  The constant is accessed as
+        # a field read of android.content.Context, so we look for it in the caller's own
+        # callees and in the method signature of the callers themselves.
+        callers = self.callgraph.search_methods("registerReceiver")
+        seen: set = set()
+
+        for caller_sig in callers:
+            if caller_sig in seen:
+                continue
+            seen.add(caller_sig)
+
+            # Collect the full set of strings associated with this call site:
+            # the caller signature + its direct callees
+            callees = self.callgraph.get_callees(caller_sig) if hasattr(self.callgraph, "get_callees") else []
+            context_strings = [caller_sig] + list(callees)
+
+            has_export_flag = any(
+                "RECEIVER_NOT_EXPORTED" in s or "RECEIVER_EXPORTED" in s
+                for s in context_strings
+            )
+            if has_export_flag:
+                continue
+
+            # Derive a human-readable class name for the finding
+            class_name = (
+                caller_sig.split("->")[0].strip("L").replace("/", ".").rstrip(";")
+                if "->" in caller_sig else caller_sig
+            )
+
+            finding = self.create_finding(
+                component_name=class_name,
+                confidence=Confidence.POSSIBLE,
+                code_snippet=(
+                    "// registerReceiver() called without RECEIVER_NOT_EXPORTED flag\n"
+                    "// context.registerReceiver(receiver, filter);  // API 33+ requires explicit export flag\n"
+                    "// Fix: context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED);"
+                ),
+                exploit_commands=[
+                    "# Dynamic receiver — determine the registered action at runtime (e.g. via Frida or logcat)",
+                    "# Then broadcast with: adb shell am broadcast -a <action> --receiver-include-background",
+                    "# Example if action is known:",
+                    "# adb shell am broadcast -a com.example.CUSTOM_ACTION --receiver-include-background",
+                ],
+                exploit_scenario=(
+                    f"{class_name} registers a BroadcastReceiver without explicitly passing "
+                    "Context.RECEIVER_NOT_EXPORTED. On API 33+ this defaults to exported, "
+                    "allowing any app to send broadcasts to it."
+                ),
+                api_level_affected="API 33+"
+            )
+            findings.append(finding)
 
         return findings
 
