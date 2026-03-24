@@ -180,8 +180,8 @@ def cli() -> None:
 @click.option('--output', '-o', multiple=True, default=['html'],
               type=click.Choice(['html', 'json', 'sarif'], case_sensitive=False),
               help='Report format(s). Repeatable: -o html -o json -o sarif  [default: html]')
-@click.option('--severity', '-s', default='HIGH,CRITICAL',
-              help='Comma-separated severity filter.  [default: HIGH,CRITICAL]',
+@click.option('--severity', '-s', default='MEDIUM,HIGH,CRITICAL',
+              help='Comma-separated severity filter.  [default: MEDIUM,HIGH,CRITICAL]',
               metavar='LEVELS')
 @click.option('--min-confidence', '-c', default='LIKELY',
               type=click.Choice(['CONFIRMED', 'LIKELY', 'POSSIBLE'], case_sensitive=False),
