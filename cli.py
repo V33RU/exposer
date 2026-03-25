@@ -391,7 +391,7 @@ def scan(
             frida_dir.mkdir(parents=True, exist_ok=True)
             seen_scripts: set = set()
             for finding in filtered:
-                short = finding.component_name.split(".")[-1].replace(";", "")[:40]
+                short = finding.component_name.replace("/", ".").split(".")[-1].replace(";", "")[:40]
                 js_name = f"{finding.rule_id}_{short}.js"
                 if js_name in seen_scripts:
                     continue
