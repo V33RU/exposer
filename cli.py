@@ -65,6 +65,7 @@ from rules.storage_rules import InsecureLoggingRule, DynamicCodeLoadingRule, Sec
 
 from exploit.hint_generator import ExploitHintGenerator
 from exploit.scenario_builder import ScenarioBuilder
+from exploit.frida_scripts import FridaScriptGenerator
 
 from report.html_report import HTMLReportGenerator
 from report.json_report import JSONReportGenerator
@@ -330,6 +331,7 @@ def scan(
     callgraph = None
     taint_engine = None
     all_findings: List[Finding] = []
+    written_scripts: List[Path] = []
 
     with progress:
         # Phase 1 — Load APK
@@ -375,13 +377,28 @@ def scan(
             and confidence_order.get(f.confidence, 3) <= min_conf_level
         ]
 
-        # Exploit hints
+        # Exploit hints + Frida scripts
         exploit_data = None
         scenario_data = None
         if exploit_hints and filtered:
             hint_gen = ExploitHintGenerator(package_name)
             exploit_data = hint_gen.generate_all_hints(filtered)
             scenario_data = ScenarioBuilder(package_name).build_all_scenarios(filtered)
+
+            # Write one .js file per finding into output_dir/frida/
+            frida_gen = FridaScriptGenerator(package_name)
+            frida_dir = output_dir / "frida"
+            frida_dir.mkdir(parents=True, exist_ok=True)
+            seen_scripts: set = set()
+            for finding in filtered:
+                short = finding.component_name.split(".")[-1].replace(";", "")[:40]
+                js_name = f"{finding.rule_id}_{short}.js"
+                if js_name in seen_scripts:
+                    continue
+                seen_scripts.add(js_name)
+                js_path = frida_dir / js_name
+                js_path.write_text(frida_gen.generate(finding), encoding="utf-8")
+                written_scripts.append(js_path)
 
         # Write reports
         saved: List[Path] = []
@@ -500,6 +517,19 @@ def scan(
             t = Text("  ✓ ", style="green")
             t.append(str(path), style=f"cyan link file://{path.resolve()}")
             console.print(t)
+
+    # ── Frida scripts ──────────────────────────────────────────────────────────
+    if exploit_hints and filtered and written_scripts:
+        console.print()
+        console.print(Rule("[dim]Frida Scripts[/dim]", style="dim"))
+        for js_path in written_scripts:
+            t = Text("  ✓ ", style="green")
+            t.append(str(js_path), style=f"cyan link file://{js_path.resolve()}")
+            console.print(t)
+        pkg_hint = package_name
+        console.print(
+            f"\n[dim]  Run: [cyan]frida -U -n {pkg_hint} -s <script>.js[/cyan][/dim]"
+        )
 
     # ── Auto-open HTML report ──────────────────────────────────────────────────
     if open_report:

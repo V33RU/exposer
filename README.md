@@ -89,10 +89,28 @@ python3 cli.py scan --help
 | Format | Description |
 |--------|-------------|
 | `html` | Dark interactive report — findings grouped by vulnerability type, per-component attack commands |
-| `json` | Machine-readable, full finding detail including taint paths |
+| `json` | Machine-readable, full finding detail including taint paths and Frida script |
 | `sarif` | SARIF 2.1.0 for GitHub Advanced Security / code scanning upload |
 
 Exits with code `1` when CRITICAL or HIGH findings are present (CI-friendly).
+
+## Frida Scripts
+
+Pass `-e` / `--exploit-hints` to auto-generate a runnable Frida JS script for every finding:
+
+```bash
+python3 cli.py scan app.apk -e
+```
+
+Scripts are written to `./frida/<RULE-ID>_<Component>.js` and printed at the end of the scan.
+Each script hooks the exact vulnerable method for that finding — logging arguments, dumping key
+material, confirming bypasses — and can be run directly:
+
+```bash
+frida -U -n com.example.app -s frida/EXP-002_MainActivity.js
+```
+
+Coverage: all 38 rules have dedicated templates (EXP-001 through EXP-043).
 
 ## How It Works
 
@@ -104,11 +122,13 @@ Exits with code `1` when CRITICAL or HIGH findings are present (CI-friendly).
 ## Project Structure
 
 ```
-core/          APK parsing, call graph, taint engine
-rules/         38 detection rules across 8 modules
-exploit/       ADB / Frida / drozer hint generation
-report/        HTML, JSON, SARIF report writers
-cli.py         Entry point
+core/              APK parsing, call graph, taint engine
+rules/             38 detection rules across 8 modules
+exploit/           ADB / Frida / drozer hint generation
+  frida_scripts.py   Per-rule Frida JS script templates (all 38 rules)
+report/            HTML, JSON, SARIF report writers
+cli.py             Entry point
+FUTURE_ADDONS.md   Planned enhancements and ideas
 ```
 
 ## License
