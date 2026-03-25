@@ -7,14 +7,14 @@ from .activities import (
     WebViewFileAccessRule, IntentRedirectionRule,
 )
 from .services import ExportedServiceRule, ServiceIntentInjectionRule
-from .receivers import ExportedReceiverRule, DynamicReceiverRule, ReceiverInjectionRule
+from .receivers import ExportedReceiverRule, DynamicReceiverRule, ReceiverInjectionRule, UnprotectedSendBroadcastRule, StickyBroadcastRule
 from .providers import ExportedProviderRule, ProviderSQLInjectionRule, ProviderPathTraversalRule, GrantUriPermissionsRule, FileProviderBroadPathsRule
 from .deeplinks import DeepLinkAutoVerifyRule, DeepLinkOpenRedirectRule, CustomSchemeHijackingRule
 from .manifest_rules import (
     InsecureNetworkConfigRule, DebugModeEnabledRule,
     BackupEnabledRule, PendingIntentVulnerabilityRule
 )
-from .crypto_rules import HardcodedCryptoKeyRule, InsecureRandomRule
+from .crypto_rules import HardcodedCryptoKeyRule, InsecureRandomRule, BrokenTrustManagerRule, AllowAllHostnameVerifierRule, WebViewSslErrorIgnoredRule
 
 __all__ = [
     "BaseRule", "Finding", "Severity", "Confidence",
@@ -26,6 +26,7 @@ __all__ = [
     "ExportedServiceRule", "ServiceIntentInjectionRule",
     # Receiver rules
     "ExportedReceiverRule", "DynamicReceiverRule", "ReceiverInjectionRule",
+    "UnprotectedSendBroadcastRule", "StickyBroadcastRule",
     # Provider rules
     "ExportedProviderRule", "ProviderSQLInjectionRule", "ProviderPathTraversalRule", "GrantUriPermissionsRule",
     "FileProviderBroadPathsRule",
@@ -36,4 +37,5 @@ __all__ = [
     "BackupEnabledRule", "PendingIntentVulnerabilityRule",
     # Crypto/code quality rules
     "HardcodedCryptoKeyRule", "InsecureRandomRule",
+    "BrokenTrustManagerRule", "AllowAllHostnameVerifierRule", "WebViewSslErrorIgnoredRule",
 ]

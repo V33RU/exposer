@@ -50,7 +50,7 @@ from rules.activities import (
     WebViewFileAccessRule, IntentRedirectionRule,
 )
 from rules.services import ExportedServiceRule, ServiceIntentInjectionRule
-from rules.receivers import ExportedReceiverRule, DynamicReceiverRule, ReceiverInjectionRule
+from rules.receivers import ExportedReceiverRule, DynamicReceiverRule, ReceiverInjectionRule, UnprotectedSendBroadcastRule, StickyBroadcastRule
 from rules.providers import (
     ExportedProviderRule, ProviderSQLInjectionRule, ProviderPathTraversalRule,
     GrantUriPermissionsRule, TypoPermissionRule, FileProviderBroadPathsRule,
@@ -60,7 +60,7 @@ from rules.manifest_rules import (
     InsecureNetworkConfigRule, DebugModeEnabledRule,
     BackupEnabledRule, PendingIntentVulnerabilityRule
 )
-from rules.crypto_rules import HardcodedCryptoKeyRule, InsecureRandomRule
+from rules.crypto_rules import HardcodedCryptoKeyRule, InsecureRandomRule, BrokenTrustManagerRule, AllowAllHostnameVerifierRule, WebViewSslErrorIgnoredRule
 from rules.storage_rules import InsecureLoggingRule, DynamicCodeLoadingRule, SecureScreenFlagRule
 
 from exploit.hint_generator import ExploitHintGenerator
@@ -97,6 +97,8 @@ _ALL_RULE_CLASSES = [
     ("receivers",  ExportedReceiverRule),
     ("receivers",  DynamicReceiverRule),
     ("receivers",  ReceiverInjectionRule),
+    ("receivers",  UnprotectedSendBroadcastRule),
+    ("receivers",  StickyBroadcastRule),
     ("providers",  ExportedProviderRule),
     ("providers",  ProviderSQLInjectionRule),
     ("providers",  ProviderPathTraversalRule),
@@ -112,6 +114,9 @@ _ALL_RULE_CLASSES = [
     ("manifest",   PendingIntentVulnerabilityRule),
     ("crypto",     HardcodedCryptoKeyRule),
     ("crypto",     InsecureRandomRule),
+    ("crypto",     BrokenTrustManagerRule),
+    ("crypto",     AllowAllHostnameVerifierRule),
+    ("crypto",     WebViewSslErrorIgnoredRule),
     ("storage",    InsecureLoggingRule),
     ("storage",    DynamicCodeLoadingRule),
     ("storage",    SecureScreenFlagRule),

@@ -276,7 +276,27 @@ class TapjackingVulnerabilityRule(BaseRule):
                     "action": "Verify android:filterTouchesWhenObscured=\"true\" in root view layout"
                 },
                 code_snippet='<!-- Add to root view in layout XML -->\nandroid:filterTouchesWhenObscured="true"',
-                remediation="Add filterTouchesWhenObscured=\"true\" to the root view of sensitive activity layouts."
+                remediation="Add filterTouchesWhenObscured=\"true\" to the root view of sensitive activity layouts.",
+                exploit_commands=[
+                    "# Tapjacking cannot be triggered via ADB — it requires a crafted overlay APK.",
+                    "# The attacker installs a malicious app that draws a transparent window",
+                    "# (TYPE_APPLICATION_OVERLAY) on top of the target activity.",
+                    "# When the victim taps the overlay, the touch passes through to the target.",
+                    "#",
+                    "# Step 1 — verify the layout does NOT set filterTouchesWhenObscured:",
+                    "apktool d app.apk -o app_decoded",
+                    "grep -r 'filterTouchesWhenObscured' app_decoded/res/layout/",
+                    "# Step 2 — if absent, build a PoC overlay app with SYSTEM_ALERT_WINDOW,",
+                    "# draw a TYPE_APPLICATION_OVERLAY window over the target activity,",
+                    "# and confirm touches reach the target without user awareness.",
+                ],
+                exploit_scenario=(
+                    f"{name} is exported and likely lacks filterTouchesWhenObscured. "
+                    "An attacker app with SYSTEM_ALERT_WINDOW permission can draw a transparent "
+                    "overlay on top of this activity. The victim interacts with the fake overlay "
+                    "while unknowingly triggering actions (button clicks, permission grants) "
+                    "in the hidden target activity beneath."
+                ),
             ))
 
         return findings
