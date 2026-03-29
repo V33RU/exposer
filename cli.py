@@ -124,6 +124,25 @@ _ALL_RULE_CLASSES = [
 ]
 
 
+BANNER = (
+    "[bold blue]██╗   ██╗███████╗███╗   ██╗ ██████╗ ██╗██████╗ [/bold blue]\n"
+    "[bold blue]██║   ██║██╔════╝████╗  ██║██╔═══██╗██║██╔══██╗[/bold blue]\n"
+    "[bold cyan]██║   ██║█████╗  ██╔██╗ ██║██║   ██║██║██║  ██║[/bold cyan]\n"
+    "[bold cyan]╚██╗ ██╔╝██╔══╝  ██║╚██╗██║██║   ██║██║██║  ██║[/bold cyan]\n"
+    "[bold white] ╚████╔╝ ███████╗██║ ╚████║╚██████╔╝██║██████╔╝[/bold white]\n"
+    "[bold white]  ╚═══╝  ╚══════╝╚═╝  ╚═══╝ ╚═════╝ ╚═╝╚═════╝ [/bold white]\n"
+    "[dim]  Android APK Security Analyzer  |  v1.0.0[/dim]"
+)
+
+
+def _print_banner(subtitle: str = "") -> None:
+    console.print()
+    console.print(BANNER)
+    if subtitle:
+        console.print(f"  [dim]{subtitle}[/dim]")
+    console.print()
+
+
 def _silence_libs(verbose: bool) -> None:
     """Suppress noisy third-party loggers unless verbose."""
     level = logging.DEBUG if verbose else logging.WARNING
@@ -204,12 +223,7 @@ def list_rules(category: Optional[str]) -> None:
       python3 cli.py rules
       python3 cli.py rules --category deeplinks
     """
-    console.print()
-    console.print(Panel(
-        "[bold white]VENOID[/bold white] [dim]v1.0.0[/dim]  ·  Available Detection Rules",
-        border_style="bright_blue",
-        padding=(0, 2),
-    ))
+    _print_banner("Available Detection Rules")
     console.print()
 
     table = Table(show_header=True, header_style="bold dim", border_style="dim", padding=(0, 1))
@@ -309,12 +323,7 @@ def scan(
         min_conf_enum = Confidence[min_confidence.upper()]
 
     # ── Header ────────────────────────────────────────────────────────────────
-    console.print()
-    console.print(Panel(
-        f"[bold white]VENOID[/bold white] [dim]v1.0.0[/dim]  ·  Android APK Security Analyzer",
-        border_style="bright_blue",
-        padding=(0, 2),
-    ))
+    _print_banner(f"Scanning: [bold cyan]{apk_path.name}[/bold cyan]")
 
     # ── 4-phase progress (transient - disappears when done) ────────────────────
     progress = Progress(
