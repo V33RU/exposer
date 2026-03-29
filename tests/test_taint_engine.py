@@ -127,7 +127,7 @@ class TestTrackTaint:
         analysis = MagicMock()
         engine = TaintEngine([], analysis, app_package="com.test.app")
 
-        # Chain of 10 methods — sink at depth 10
+        # Chain of 10 methods - sink at depth 10
         methods = []
         for i in range(10):
             methods.append(_mock_method(
@@ -162,7 +162,7 @@ class TestGetPathsToSink:
         result = engine.get_paths_to_sink("rawQuery")
         assert len(result) == 0  # lowercase "rawQuery" not in "doRawQuery" (case-sensitive)
 
-        # "RawQuery" IS in "doRawQuery" — case-sensitive substring match
+        # "RawQuery" IS in "doRawQuery" - case-sensitive substring match
         result = engine.get_paths_to_sink("RawQuery")
         assert len(result) == 1
 
