@@ -1,4 +1,4 @@
-"""CLI interface for ExPoser using Click."""
+"""CLI interface for VENOID using Click."""
 
 import rich_click as click
 import json
@@ -128,14 +128,14 @@ def _silence_libs(verbose: bool) -> None:
     """Suppress noisy third-party loggers unless verbose."""
     level = logging.DEBUG if verbose else logging.WARNING
 
-    # Standard logging — silence androguard and root
+    # Standard logging - silence androguard and root
     logging.basicConfig(level=level,
                         format="%(levelname)s %(name)s: %(message)s",
                         handlers=[logging.StreamHandler()])
     for name in ("androguard", "androguard.core", "androguard.misc"):
         logging.getLogger(name).setLevel(logging.WARNING)
 
-    # Androguard uses loguru in newer versions — disable it too
+    # Androguard uses loguru in newer versions - disable it too
     try:
         from loguru import logger as _loguru
         if not verbose:
@@ -179,7 +179,7 @@ def get_all_rules(apk_parser, callgraph, taint_engine, components: Optional[str]
 @click.group()
 @click.version_option(version="1.0.0")
 def cli() -> None:
-    """ExPoser — Android APK Security Analyzer.
+    """VENOID - Android APK Security Analyzer.
 
     Scans Android APK files for exported component vulnerabilities,
     taint flow issues, and generates exploit hints with ready-to-use
@@ -206,7 +206,7 @@ def list_rules(category: Optional[str]) -> None:
     """
     console.print()
     console.print(Panel(
-        "[bold white]ExPoser[/bold white] [dim]v1.0.0[/dim]  ·  Available Detection Rules",
+        "[bold white]VENOID[/bold white] [dim]v1.0.0[/dim]  ·  Available Detection Rules",
         border_style="bright_blue",
         padding=(0, 2),
     ))
@@ -311,12 +311,12 @@ def scan(
     # ── Header ────────────────────────────────────────────────────────────────
     console.print()
     console.print(Panel(
-        f"[bold white]ExPoser[/bold white] [dim]v1.0.0[/dim]  ·  Android APK Security Analyzer",
+        f"[bold white]VENOID[/bold white] [dim]v1.0.0[/dim]  ·  Android APK Security Analyzer",
         border_style="bright_blue",
         padding=(0, 2),
     ))
 
-    # ── 4-phase progress (transient — disappears when done) ────────────────────
+    # ── 4-phase progress (transient - disappears when done) ────────────────────
     progress = Progress(
         SpinnerColumn(),
         TextColumn("[bold cyan]{task.description:<30}"),
@@ -334,7 +334,7 @@ def scan(
     written_scripts: List[Path] = []
 
     with progress:
-        # Phase 1 — Load APK
+        # Phase 1 - Load APK
         t1 = progress.add_task("Loading APK…", total=1)
         parser = APKParser(str(apk_path))
         if not parser.load():
@@ -343,7 +343,7 @@ def scan(
         package_name = parser.get_package_name()
         progress.update(t1, completed=1, description="APK loaded")
 
-        # Phase 2 — Build analysis engine
+        # Phase 2 - Build analysis engine
         t2 = progress.add_task("Building call graph…", total=1)
         if parser.analysis:
             callgraph = CallGraph(parser.dexes, parser.analysis)
@@ -353,7 +353,7 @@ def scan(
             taint_engine.track_taint(sources, sinks)
         progress.update(t2, completed=1, description="Call graph ready")
 
-        # Phase 3 — Run rules
+        # Phase 3 - Run rules
         rules = get_all_rules(parser, callgraph, taint_engine, components)
         t3 = progress.add_task("Running rules…", total=len(rules))
         for rule in rules:
@@ -365,7 +365,7 @@ def scan(
             progress.advance(t3)
         progress.update(t3, description=f"{len(rules)} rules complete")
 
-        # Phase 4 — Reports
+        # Phase 4 - Reports
         t4 = progress.add_task("Saving reports…", total=len(output))
 
         # Filter
@@ -404,7 +404,7 @@ def scan(
         saved: List[Path] = []
         output_dir.mkdir(parents=True, exist_ok=True)
         for fmt in output:
-            out_file = output_dir / f"exposer_report_{package_name}.{fmt}"
+            out_file = output_dir / f"venoid_report_{package_name}.{fmt}"
             try:
                 if fmt == 'html':
                     HTMLReportGenerator(package_name).save(filtered, str(out_file))
@@ -543,7 +543,7 @@ def scan(
     if critical_count:
         console.print()
         console.print(Panel(
-            f"[bold red]{critical_count} CRITICAL vulnerabilit{'y' if critical_count == 1 else 'ies'} found — review immediately[/bold red]",
+            f"[bold red]{critical_count} CRITICAL vulnerabilit{'y' if critical_count == 1 else 'ies'} found - review immediately[/bold red]",
             border_style="red",
             padding=(0, 2),
         ))
