@@ -62,9 +62,9 @@ class SARIFReportGenerator:
             "runs": [{
                 "tool": {
                     "driver": {
-                        "name": "ExPoser",
+                        "name": "VENOID",
                         "version": "1.0.0",
-                        "informationUri": "https://github.com/exposer/exposer",
+                        "informationUri": "https://github.com/V33RU/exposer",
                         "rules": rule_list
                     }
                 },
@@ -157,7 +157,7 @@ class SARIFReportGenerator:
             }
         }
 
-        # Add code flows for taint paths — all steps in a single flow
+        # Add code flows for taint paths - all steps in a single flow
         if finding.taint_path:
             locations = [
                 {
