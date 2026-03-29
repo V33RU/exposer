@@ -87,7 +87,7 @@ class TestSDKVersions:
 
 
 # ---------------------------------------------------------------------------
-# get_manifest_element — strict matching
+# get_manifest_element - strict matching
 # ---------------------------------------------------------------------------
 
 class TestManifestElementMatching:
