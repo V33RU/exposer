@@ -90,7 +90,7 @@ class BaseRule(ABC):
         "sendBroadcast", "startActivity",
     )
 
-    # Known third-party SDK package prefixes — components from these are
+    # Known third-party SDK package prefixes - components from these are
     # legitimately exported by the SDK and should not be flagged as app bugs.
     THIRD_PARTY_PREFIXES: tuple = (
         "androidx.",
@@ -192,7 +192,7 @@ class BaseRule(ABC):
         )
 
     def _get_component_type(self) -> str:
-        """Get component type — uses explicit class attribute if set, otherwise infers from class name."""
+        """Get component type - uses explicit class attribute if set, otherwise infers from class name."""
         if self.component_type:
             return self.component_type
         class_name = self.__class__.__name__.lower()
