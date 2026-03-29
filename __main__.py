@@ -1,4 +1,4 @@
-"""Allow running ExPoser as ``python -m exposer``."""
+"""Allow running VENOID as ``python -m venoid``."""
 
 from cli import cli
 
