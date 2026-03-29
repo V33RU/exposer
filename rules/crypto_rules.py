@@ -15,7 +15,7 @@ class HardcodedCryptoKeyRule(BaseRule):
     cwe = "CWE-798"
     description = "Cryptographic keys are hardcoded in the application, allowing extraction and misuse."
 
-    # Strings that contain crypto keyword names but are NOT keys — they are
+    # Strings that contain crypto keyword names but are NOT keys - they are
     # algorithm/mode/padding specs, class names, or log messages.
     _BENIGN_PATTERNS = (
         # JCA algorithm spec strings  (e.g. "AES/CBC/PKCS5Padding")
@@ -55,7 +55,7 @@ class HardcodedCryptoKeyRule(BaseRule):
         # We look for strings that both (a) match a key-value pattern AND (b) are
         # assigned to a variable / field whose name contains one of these words.
         # Since we only have the string pool, we use the string value itself as
-        # the heuristic — a pure value match.
+        # the heuristic - a pure value match.
         key_label_patterns = [
             "secret", "private_key", "api_key", "apikey",
             "api-secret", "privatekey", "access_key", "auth_token",
@@ -78,7 +78,7 @@ class HardcodedCryptoKeyRule(BaseRule):
             s = str(string).strip()
             s_lower = s.lower()
 
-            # Skip short strings — too short to be a real key
+            # Skip short strings - too short to be a real key
             if len(s) < 16:
                 continue
 
@@ -86,7 +86,7 @@ class HardcodedCryptoKeyRule(BaseRule):
             if any(bp in s_lower for bp in self._BENIGN_PATTERNS):
                 continue
 
-            # Skip strings with spaces — keys don't have spaces
+            # Skip strings with spaces - keys don't have spaces
             if ' ' in s:
                 continue
 
@@ -180,8 +180,8 @@ class BrokenTrustManagerRule(BaseRule):
     cwe = "CWE-295"
     description = (
         "App implements X509TrustManager with an empty checkServerTrusted() method, "
-        "disabling certificate validation entirely. Any certificate — including self-signed "
-        "or attacker-issued — is accepted, making HTTPS traffic trivially interceptable."
+        "disabling certificate validation entirely. Any certificate - including self-signed "
+        "or attacker-issued - is accepted, making HTTPS traffic trivially interceptable."
     )
     remediation = (
         "Remove the custom TrustManager. Use the default system TrustManager. "
@@ -220,15 +220,15 @@ class BrokenTrustManagerRule(BaseRule):
                 for c in callees
             )
             if throws_exception:
-                continue  # properly rejects or delegates — not vulnerable
+                continue  # properly rejects or delegates - not vulnerable
 
             findings.append(self.create_finding(
                 component_name=class_name or "Application",
                 confidence=Confidence.LIKELY if not callees else Confidence.POSSIBLE,
                 code_snippet=(
-                    "// Dangerous — accepts every certificate:\n"
+                    "// Dangerous - accepts every certificate:\n"
                     "public void checkServerTrusted(X509Certificate[] chain, String authType) {}\n\n"
-                    "// Fix — remove this class and use the default TrustManager,\n"
+                    "// Fix - remove this class and use the default TrustManager,\n"
                     "// or configure trusted CAs via Network Security Config."
                 ),
                 exploit_commands=[
@@ -236,7 +236,7 @@ class BrokenTrustManagerRule(BaseRule):
                     "# 1. Set up mitmproxy or Burp Suite on the same network",
                     "mitmproxy --mode transparent --showhost",
                     "# 2. Route device traffic through the proxy (ARP spoof or WiFi AP)",
-                    "# 3. All HTTPS connections from the app will succeed — no cert error",
+                    "# 3. All HTTPS connections from the app will succeed - no cert error",
                     "# Verify with Frida:",
                     "# frida -U -n com.target.app -e \"Java.use('javax.net.ssl.HttpsURLConnection')"
                     ".getDefaultSSLSocketFactory().method('createSocket').implementation = ...\"",
@@ -302,10 +302,10 @@ class AllowAllHostnameVerifierRule(BaseRule):
                     component_name=class_name or "Application",
                     confidence=Confidence.CONFIRMED,
                     code_snippet=(
-                        "// Dangerous — skips hostname verification entirely:\n"
+                        "// Dangerous - skips hostname verification entirely:\n"
                         "SSLSocketFactory.setHostnameVerifier(SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);\n"
                         "// or: HttpsURLConnection.setDefaultHostnameVerifier((h, s) -> true);\n\n"
-                        "// Fix — remove this; the default verifier enforces hostname matching."
+                        "// Fix - remove this; the default verifier enforces hostname matching."
                     ),
                     exploit_commands=[
                         "# With any valid TLS cert for ANY domain, intercept the connection:",
@@ -313,7 +313,7 @@ class AllowAllHostnameVerifierRule(BaseRule):
                         "# 2. Set up mitmproxy with that cert:",
                         "mitmproxy --certs *=attacker.com.pem --mode transparent",
                         "# 3. Route device traffic through the proxy",
-                        "# The app will connect successfully — hostname is never checked",
+                        "# The app will connect successfully - hostname is never checked",
                     ],
                     exploit_scenario=(
                         f"{class_name} disables hostname verification. "
@@ -382,7 +382,7 @@ class WebViewSslErrorIgnoredRule(BaseRule):
                 component_name=class_name or "Application",
                 confidence=confidence,
                 code_snippet=(
-                    "// Dangerous — proceeds despite SSL error:\n"
+                    "// Dangerous - proceeds despite SSL error:\n"
                     "@Override\n"
                     "public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {\n"
                     "    handler.proceed();  // accepts invalid/self-signed/expired certs\n"
@@ -394,8 +394,8 @@ class WebViewSslErrorIgnoredRule(BaseRule):
                     "# Intercept WebView HTTPS traffic with an invalid/self-signed cert:",
                     "# 1. Set up mitmproxy on the same network",
                     "mitmproxy --mode transparent --showhost",
-                    "# 2. Observe WebView traffic — SSL errors are silently accepted",
-                    "# Confirm with Frida — hook onReceivedSslError to log error type:",
+                    "# 2. Observe WebView traffic - SSL errors are silently accepted",
+                    "# Confirm with Frida - hook onReceivedSslError to log error type:",
                     f"frida -U -n {pkg} -e \"Java.perform(function(){{",
                     "  var WVC = Java.use('android.webkit.WebViewClient');",
                     "  WVC.onReceivedSslError.implementation = function(view, handler, error) {",
