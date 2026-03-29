@@ -30,7 +30,7 @@ class ExportedActivityRule(BaseRule):
             if not activity['exported']:
                 continue
 
-            # Skip the launcher activity — it is intentionally exported as the app entry point
+            # Skip the launcher activity - it is intentionally exported as the app entry point
             is_launcher = any(
                 'android.intent.action.MAIN' in f.get('actions', []) and
                 'android.intent.category.LAUNCHER' in f.get('categories', [])
@@ -277,15 +277,15 @@ class TapjackingVulnerabilityRule(BaseRule):
                 code_snippet='<!-- Add to root view in layout XML -->\nandroid:filterTouchesWhenObscured="true"',
                 remediation="Add filterTouchesWhenObscured=\"true\" to the root view of sensitive activity layouts.",
                 exploit_commands=[
-                    "# Tapjacking cannot be triggered via ADB — it requires a crafted overlay APK.",
+                    "# Tapjacking cannot be triggered via ADB - it requires a crafted overlay APK.",
                     "# The attacker installs a malicious app that draws a transparent window",
                     "# (TYPE_APPLICATION_OVERLAY) on top of the target activity.",
                     "# When the victim taps the overlay, the touch passes through to the target.",
                     "#",
-                    "# Step 1 — verify the layout does NOT set filterTouchesWhenObscured:",
+                    "# Step 1 - verify the layout does NOT set filterTouchesWhenObscured:",
                     "apktool d app.apk -o app_decoded",
                     "grep -r 'filterTouchesWhenObscured' app_decoded/res/layout/",
-                    "# Step 2 — if absent, build a PoC overlay app with SYSTEM_ALERT_WINDOW,",
+                    "# Step 2 - if absent, build a PoC overlay app with SYSTEM_ALERT_WINDOW,",
                     "# draw a TYPE_APPLICATION_OVERLAY window over the target activity,",
                     "# and confirm touches reach the target without user awareness.",
                 ],
@@ -412,7 +412,7 @@ class InsecureWebResourceResponseRule(BaseRule):
                 code_snippet=(
                     "@Override\n"
                     "public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {\n"
-                    "    // Returns local file based on request URL — validate path!\n"
+                    "    // Returns local file based on request URL - validate path!\n"
                     "}"
                 ),
                 exploit_commands=[
@@ -460,7 +460,7 @@ class JavaScriptBridgeRule(BaseRule):
 
             if launch_target:
                 exploit_cmds = [
-                    f"# {class_name} exposes a JavaScript bridge — launch it and inject JS",
+                    f"# {class_name} exposes a JavaScript bridge - launch it and inject JS",
                     f"adb shell am start -n {pkg}/{launch_target} --es url 'javascript:window._native_interface.toString()'",
                     f"# Enumerate all bridge methods:",
                     f"adb shell am start -n {pkg}/{launch_target} --es url "
@@ -528,14 +528,14 @@ class WebViewFileAccessRule(BaseRule):
                 "setAllowUniversalAccessFromFileURLs",
                 Confidence.CONFIRMED,
                 Severity.CRITICAL,
-                "Allows any file:// page to read ALL files the app can access — "
+                "Allows any file:// page to read ALL files the app can access - "
                 "equivalent to a full same-origin policy bypass.",
             ),
             (
                 "setAllowFileAccessFromFileURLs",
                 Confidence.LIKELY,
                 Severity.HIGH,
-                "Allows file:// pages to read other file:// URIs — "
+                "Allows file:// pages to read other file:// URIs - "
                 "an attacker can read any file the app has access to via a crafted local HTML page.",
             ),
         ]
@@ -547,7 +547,7 @@ class WebViewFileAccessRule(BaseRule):
                 if caller_sig in seen:
                     continue
 
-                # Confirm the call passes `true` — check callees for a boolean true literal.
+                # Confirm the call passes `true` - check callees for a boolean true literal.
                 # Androguard doesn't expose argument values easily from the callgraph alone,
                 # so we flag all callers and note that manual verification is needed if
                 # the confidence is LIKELY.
@@ -582,7 +582,7 @@ class WebViewFileAccessRule(BaseRule):
                     component_name=class_name,
                     confidence=confidence,
                     code_snippet=(
-                        f"webView.getSettings().{api_name}(true);  // DANGEROUS — remove this line"
+                        f"webView.getSettings().{api_name}(true);  // DANGEROUS - remove this line"
                     ),
                     exploit_commands=exploit_cmds,
                     exploit_scenario=scenario,
@@ -598,7 +598,7 @@ class WebViewFileAccessRule(BaseRule):
 
 
 class IntentRedirectionRule(BaseRule):
-    """Detect intent redirection — exported component forwards attacker-controlled intent - CWE-926."""
+    """Detect intent redirection - exported component forwards attacker-controlled intent - CWE-926."""
 
     rule_id = "EXP-037"
     title = "Intent Redirection (Privilege Escalation)"
