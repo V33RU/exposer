@@ -64,7 +64,7 @@ class JSONReportGenerator:
 
         report = {
             "report_metadata": {
-                "tool": "ExPoser",
+                "tool": "VENOID",
                 "version": "1.0.0",
                 "scan_date": datetime.now().isoformat(),
                 "package_name": self.package_name,
