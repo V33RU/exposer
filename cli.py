@@ -62,6 +62,7 @@ from rules.manifest_rules import (
 )
 from rules.crypto_rules import HardcodedCryptoKeyRule, InsecureRandomRule, BrokenTrustManagerRule, AllowAllHostnameVerifierRule, WebViewSslErrorIgnoredRule
 from rules.storage_rules import InsecureLoggingRule, DynamicCodeLoadingRule, SecureScreenFlagRule
+from rules.root_detection import FileBasedRootDetectionRule, APIBasedRootDetectionRule, NativeRootDetectionRule
 
 from exploit.hint_generator import ExploitHintGenerator
 from exploit.scenario_builder import ScenarioBuilder
@@ -121,6 +122,9 @@ _ALL_RULE_CLASSES = [
     ("storage",    InsecureLoggingRule),
     ("storage",    DynamicCodeLoadingRule),
     ("storage",    SecureScreenFlagRule),
+    ("security",   FileBasedRootDetectionRule),
+    ("security",   APIBasedRootDetectionRule),
+    ("security",   NativeRootDetectionRule),
 ]
 
 
@@ -180,8 +184,8 @@ def get_all_rules(apk_parser, callgraph, taint_engine, components: Optional[str]
     """Get rule instances, optionally filtered by component type."""
     active = {c.strip().lower() for c in components.split(',')} if components else None
 
-    # manifest/crypto/storage rules always run when no filter is set
-    always_run = {"manifest", "crypto", "storage"}
+    # manifest/crypto/storage/security rules always run when no filter is set
+    always_run = {"manifest", "crypto", "storage", "security"}
 
     rules = []
     for category, cls in _ALL_RULE_CLASSES:
@@ -214,7 +218,7 @@ def cli() -> None:
 
 @cli.command(name="rules")
 @click.option('--category', '-c', default=None,
-              help='Filter by category (activities, services, receivers, providers, deeplinks, manifest, crypto, storage).')
+              help='Filter by category (activities, services, receivers, providers, deeplinks, manifest, crypto, storage, security).')
 def list_rules(category: Optional[str]) -> None:
     """List all available detection rules.
 
@@ -272,7 +276,7 @@ def list_rules(category: Optional[str]) -> None:
 @click.option('--components', '-t', default=None,
               metavar='TYPES',
               help='Limit scan to component types (comma-separated).\n'
-                   'Choices: activities, services, receivers, providers, deeplinks\n'
+                   'Choices: activities, services, receivers, providers, deeplinks, security\n'
                    'Default: all')
 @click.option('--exploit-hints', '-e', is_flag=True,
               help='Attach ADB / Frida / drozer commands to each finding.')

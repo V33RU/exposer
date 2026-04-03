@@ -5,8 +5,8 @@ Android APK static security analyzer. Detects exported component vulnerabilities
 ## Install
 
 ```bash
-git clone https://github.com/V33RU/exposer.git
-cd exposer
+git clone https://github.com/V33RU/Venoid.git
+cd Venoid
 python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 ```
