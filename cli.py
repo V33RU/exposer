@@ -55,6 +55,7 @@ from rules.manifest_rules import InsecureNetworkConfigRule, DebugModeEnabledRule
 from rules.crypto_rules import HardcodedCryptoKeyRule, InsecureRandomRule
 from rules.storage_rules import InsecureLoggingRule, SecureScreenFlagRule
 from rules.network_rules import APIKeyLeakageRule, CleartextTrafficPatternRule
+from rules.root_detection import FileBasedRootDetectionRule
 
 console = Console()
 
@@ -98,10 +99,129 @@ _ALL_RULE_CLASSES = [
     # Network
     ("network",    APIKeyLeakageRule),
     ("network",    CleartextTrafficPatternRule),
+    # Security (root detection awareness)
+    ("security",   FileBasedRootDetectionRule),
 ]
 
 # Rules available only in Venoid Pro — shown in upgrade notice
-_PRO_RULE_COUNT = 32
+_PRO_RULE_COUNT = 31
+
+
+def _generate_html_report(package_name: str, apk_path: str, findings: list) -> str:
+    """Generate a self-contained HTML security report."""
+    _SEV_BADGE = {
+        "CRITICAL": ("bg:#7f1d1d", "color:#fca5a5"),
+        "HIGH":     ("bg:#7c2d12", "color:#fdba74"),
+        "MEDIUM":   ("bg:#713f12", "color:#fde047"),
+        "LOW":      ("bg:#14532d", "color:#86efac"),
+        "INFO":     ("bg:#1e3a5f", "color:#93c5fd"),
+    }
+
+    def badge(sev: str) -> str:
+        bg, fg = _SEV_BADGE.get(sev, ("bg:#334155", "color:#e2e8f0"))
+        return (f'<span style="display:inline-block;padding:2px 8px;border-radius:9999px;'
+                f'font-size:11px;font-weight:700;{bg};{fg}">{sev}</span>')
+
+    rows = []
+    for f in findings:
+        cmds_html = ""
+        if f.exploit_commands:
+            cmds = "\n".join(f.exploit_commands)
+            cmds_html = (f'<details style="margin-top:6px"><summary style="cursor:pointer;color:#94a3b8;'
+                         f'font-size:12px">Exploit hints</summary>'
+                         f'<pre style="background:#0d1117;padding:8px;border-radius:6px;'
+                         f'font-size:11px;color:#7dd3fc;margin-top:4px;overflow-x:auto">'
+                         f'{cmds}</pre></details>')
+        desc = f.description.replace("<", "&lt;").replace(">", "&gt;")
+        rows.append(f"""
+        <tr style="border-bottom:1px solid #1e293b">
+          <td style="padding:12px 8px;white-space:nowrap">{badge(f.severity.value)}</td>
+          <td style="padding:12px 8px;color:#94a3b8;font-size:12px">{f.confidence.value}</td>
+          <td style="padding:12px 8px;color:#67e8f9;font-size:12px;white-space:nowrap">{f.rule_id}</td>
+          <td style="padding:12px 8px;color:#e2e8f0;font-size:13px">{f.component_name.split('.')[-1]}</td>
+          <td style="padding:12px 8px">
+            <div style="color:#f1f5f9;font-size:13px;font-weight:600">{f.title}</div>
+            <div style="color:#64748b;font-size:12px;margin-top:3px">{desc[:200]}{'…' if len(desc)>200 else ''}</div>
+            {cmds_html}
+          </td>
+          <td style="padding:12px 8px;color:#94a3b8;font-size:12px">{f.cwe}</td>
+        </tr>""")
+
+    rows_html = "\n".join(rows) if rows else (
+        '<tr><td colspan="6" style="text-align:center;padding:40px;color:#475569">'
+        'No findings matched the current filters.</td></tr>')
+
+    total = len(findings)
+    counts = {}
+    for f in findings:
+        counts[f.severity.value] = counts.get(f.severity.value, 0) + 1
+
+    def stat(label: str, n: int, color: str) -> str:
+        return (f'<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:16px 20px">'
+                f'<div style="color:#64748b;font-size:11px;margin-bottom:4px">{label}</div>'
+                f'<div style="font-size:24px;font-weight:700;color:{color}">{n}</div></div>')
+
+    stats_html = (
+        stat("Total Findings", total, "#e2e8f0") +
+        stat("Critical", counts.get("CRITICAL", 0), "#fca5a5") +
+        stat("High", counts.get("HIGH", 0), "#fdba74") +
+        stat("Medium", counts.get("MEDIUM", 0), "#fde047") +
+        stat("Low / Info", counts.get("LOW", 0) + counts.get("INFO", 0), "#86efac")
+    )
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Venoid Report — {package_name}</title>
+  <style>
+    *{{box-sizing:border-box;margin:0;padding:0}}
+    body{{background:#0d1117;color:#e2e8f0;font-family:'Courier New',monospace;font-size:14px}}
+    a{{color:#67e8f9;text-decoration:none}}
+    table{{border-collapse:collapse;width:100%}}
+    th{{text-align:left;padding:10px 8px;background:#0f172a;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:.05em}}
+  </style>
+</head>
+<body>
+<nav style="border-bottom:1px solid #1e293b;padding:14px 24px;display:flex;align-items:center;justify-content:space-between">
+  <span style="color:#22d3ee;font-weight:700;font-size:18px;letter-spacing:.1em">
+    VENOID<span style="color:#f1f5f9"> REPORT</span>
+  </span>
+  <span style="color:#475569;font-size:12px">Android APK Security Analyzer</span>
+</nav>
+
+<main style="max-width:1100px;margin:0 auto;padding:32px 16px">
+  <h1 style="font-size:20px;color:#f1f5f9;margin-bottom:4px">Security Report</h1>
+  <p style="color:#475569;font-size:13px;margin-bottom:24px">
+    Package: <span style="color:#67e8f9">{package_name}</span> &nbsp;|&nbsp;
+    APK: <span style="color:#94a3b8">{apk_path}</span>
+  </p>
+
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:32px">
+    {stats_html}
+  </div>
+
+  <div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;overflow:hidden">
+    <table>
+      <thead>
+        <tr>
+          <th>Severity</th><th>Confidence</th><th>Rule</th>
+          <th>Component</th><th>Finding</th><th>CWE</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows_html}
+      </tbody>
+    </table>
+  </div>
+
+  <p style="color:#334155;font-size:11px;text-align:center;margin-top:24px">
+    Generated by Venoid — Android APK Security Analyzer
+  </p>
+</main>
+</body>
+</html>"""
 
 
 BANNER = (
@@ -161,7 +281,7 @@ def get_all_rules(apk_parser, callgraph, taint_engine, components: Optional[str]
     active = {c.strip().lower() for c in components.split(',')} if components else None
 
     # these categories always run when no component-type filter is active
-    always_run = {"manifest", "crypto", "storage", "network"}
+    always_run = {"manifest", "crypto", "storage", "network", "security"}
 
     rules = []
     for category, cls in _ALL_RULE_CLASSES:
@@ -238,9 +358,9 @@ def list_rules(category: Optional[str]) -> None:
 @cli.command()
 @click.argument('apk_path', type=click.Path(exists=True, path_type=Path),
                 metavar='APK_PATH')
-@click.option('--output', '-o', multiple=True, default=['json'],
-              type=click.Choice(['json'], case_sensitive=False),
-              help='Report format(s).  [default: json]')
+@click.option('--output', '-o', multiple=True, default=['json', 'html'],
+              type=click.Choice(['json', 'html'], case_sensitive=False),
+              help='Report format(s).  [default: json html]')
 @click.option('--severity', '-s', default='MEDIUM,HIGH,CRITICAL',
               help='Comma-separated severity filter.  [default: MEDIUM,HIGH,CRITICAL]',
               metavar='LEVELS')
@@ -390,6 +510,9 @@ def scan(
                         ],
                     }
                     out_file.write_text(json.dumps(data, indent=2, default=str), encoding='utf-8')
+                elif fmt == 'html':
+                    html = _generate_html_report(package_name, str(apk_path), filtered)
+                    out_file.write_text(html, encoding='utf-8')
                 saved.append(out_file)
             except Exception as e:
                 logger.error(f"Report {fmt} failed: {e}")
