@@ -14,7 +14,7 @@ pip install -r requirements.txt
 ## Usage
 
 ```bash
-# Scan and save JSON report
+# Scan and save JSON + HTML reports (default)
 python3 cli.py scan app.apk
 
 # Show all severity levels
@@ -33,7 +33,7 @@ python3 cli.py scan app.apk -d ./reports
 python3 cli.py rules
 ```
 
-## Detection Rules (20)
+## Detection Rules (21)
 
 | ID | Title | Severity |
 |----|-------|----------|
@@ -64,8 +64,10 @@ python3 cli.py rules
 | EXP-033 | Insecure Logging of Sensitive Data | MEDIUM |
 | EXP-035 | Missing FLAG_SECURE (Screen Capture Risk) | LOW |
 | **Network** | | |
-| EXP-044 | API Key / Secret Leakage | HIGH |
-| EXP-045 | Cleartext Traffic Pattern Detected | MEDIUM |
+| EXP-049 | API Key / Secret Leakage | HIGH |
+| EXP-050 | Cleartext Traffic Pattern Detected | MEDIUM |
+| **Security** | | |
+| EXP-044 | File-Based Root Detection (awareness) | INFO |
 
 ## How It Works
 
